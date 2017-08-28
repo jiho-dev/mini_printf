@@ -26,6 +26,7 @@ An oridinary character is printed verbatim. A format specifier is replaced by a 
 
 type specifies the type of the corresponding argument to a format specifier. It determines to print the argument as a character, a string, or a number.
 
+<pre>
 c - take an argument and print it as a character
 s - take an argument and print it as a character string
 b - take an argument and print it as a binary number
@@ -33,6 +34,7 @@ d - take an argument and print it as a decimal number
 x - take an argument and print it as a hexadecimal number in lower-case
 X - take an argument and print it as a hexadecimal number in upper-case
 % - print a single percent sign. takes no argument. ignores flags, width, precision, type-prefix.
+</pre>
 
 **flags**
 
