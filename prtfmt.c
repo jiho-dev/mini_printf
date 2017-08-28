@@ -109,10 +109,9 @@ static char* int2str(long int data, int base, fmt_t *fmt)
 		"0123456789abcdef",
 		"0123456789ABCEDF",
 	};
-	size_t len;
+	int len;
 	char *buf;
 	char *digit;
-	//char sign = ' ';
 	
 	if (fmt->flags & FMT_TYPE_HEX_UPPER) {
 		digit = base_string[1];
@@ -121,19 +120,16 @@ static char* int2str(long int data, int base, fmt_t *fmt)
 		digit = base_string[0];
 	}
 
-	len = get_integer_length(data, base);
+	len = (int)get_integer_length(data, base);
 
 	if (len < 1)
 		return NULL;
 
-	if (fmt->flags & FMT_HAS_PRECISION && fmt->precision > (int)len) {
-		len = (size_t)fmt->precision;
+	if (fmt->flags & FMT_HAS_PRECISION && fmt->precision > len) {
+		len = fmt->precision;
 	}
 
 	if (data < 0) {
-		// for minus sign
-		//len ++;
-		//sign = '-';
 		data *= -1;
 	}
 
@@ -154,17 +150,10 @@ static char* int2str(long int data, int base, fmt_t *fmt)
 	buf[len] = digit[data];
 	len --;
 
-	while (len != 0) {
+	while (len >= 0) {
 		buf[len] = '0';
 		len --;
 	}
-
-#if 0
-	if (sign == '-') {
-		len --;
-		buf[len] = sign;
-	}
-#endif
 
 	return buf;
 }
@@ -381,35 +370,20 @@ static void print_integer(long int data, int base, fmt_t *fmt)
 	size_t i;
 	char *msg;
 	char *p;
-	//char *end;
+	char *end;
 
 	string = int2str(data, base, fmt);
 	if (string == NULL)
 		return;
 
 	len = my_strlen(string);
-	//end = string + len;
-
-	printf("int string=%s, len=%lu \n", string, len);
-
-	//my_putstring((const char *)string);
+	end = string + len;
 	
 	if ((fmt->flags & FMT_HAS_WIDTH)) {
 		tlen = fmt->width;
 	}
 
-	if (fmt->flags & FMT_HAS_PRECISION) {
-		plen = fmt->precision;
-
-		if (len > plen) {
-			len = plen;
-		}
-
-		if (tlen < plen) {
-			tlen = plen;
-		}
-	}
-	else if (tlen < len){
+	if (tlen < len){
 		tlen = len;
 	}
 
@@ -440,12 +414,13 @@ static void print_integer(long int data, int base, fmt_t *fmt)
 		p = msg + (tlen - plen);
 	}
 
-	//my_memcpy(p, buf, end, len, fmt->flags & FMT_FLAG_TILDE);
+	my_memcpy(p, string, end, len, fmt->flags & FMT_FLAG_TILDE);
 
 	for (i=0; i<tlen; i++) {
 		my_putchar((const char)msg[i]);
 	}
 
+	free(msg);
 	free(string);
 }
 

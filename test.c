@@ -13,8 +13,9 @@ int main(void)
 	//mini_printf("[%-20c]\n", "A");
 	
 	//mini_printf ("[%d %x %X %b]\n", 15, 15, 15, 15);
-	//mini_printf ("[%10.6d]\n", 16);
-	printf ("[%10.05d]\n", 169);
+	mini_printf ("[%10d]\n", 169);
+	//mini_printf ("[%10.6d]\n", 169);
+	//printf ("[%10.6d]\n", 169);
 	//printf ("[%b]\n", 16);
 
 	//printf("\n\nprintf sharot=%ld", -2);
