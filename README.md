@@ -2,9 +2,10 @@
 
 Printf is a famous formatted output function provided by the standard C library. The standard printf function accepts a formatting string followed by zero or more variadic arguments to replace formatting specifiers in the formatting string. You are required to implement a subset printf function compliant to the following specification. The specification is mostly a subset of the standard printf function but includes two extensions that don't exist in the standard.
 
-void mini_printf (const char* format, …);
+void mini_printf (const char* format, ...);
 The format string is a character string that may be composed of ordinary characters and format specifiers.
 
+<pre>
 format specifier := %[flags][width][.precision][type-prefix]type
 where flag := { + | - | 0 }
       flags := one or more flag
@@ -49,8 +50,11 @@ type-prefix
 
 type-prefix is an optional single character that specifies the size of the corresponding argument to the format specifier. For an integer argument, h takes it as short int and l takes it as long int. It is meaningful only if type is one of b, d, x, X. It is ignored for character and string output.
 
+</pre>
+
 See these sample calls and outputs for clarification:
 
+<code>
 mini_printf ("hello, world\n");                      hello, world
 mini_printf ("[%99% %T %d]\n", 20);                  [% %T 20]
 mini_printf ("[%d %x %X %b]\n", 15, 15, 15, 15);     [15 f F 1111]
@@ -72,6 +76,8 @@ mini_printf ("[%4.6c]\n", 'A');                      [   A]
 mini_printf ("[%4.0c]\n", 'A');                      [   A]
 mini_printf ("[%-20c]\n", 'A');                      [A                   ]
 mini_printf ("[%+10x]\n", -1);                       [  ffffffff]
+</code>
+
 The following restrictions apply:
 
 Never use library functions except a system call to write output to the console. (e.g. write defined in unistd.h or WriteFile/WriteConsole on win32/win64)
