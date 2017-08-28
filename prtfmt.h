@@ -46,7 +46,11 @@ extern "C"
 {
 #endif
 
+// for debugging
+extern char msg_buf[1024];
+extern int  msg_idx;
 
+// prototype
 void mini_printf (const char* format, ...);
 
 

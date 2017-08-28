@@ -10,13 +10,30 @@
 
 #include "prtfmt.h"
 
+char msg_buf[1024];
+int  msg_idx=0;
 
 static void print_string(const char *buf, size_t len, fmt_t* fmt);
+
 //////////////////////////////////////////////
 
 static void my_putchar(const char buf)
 {
+	// for debugging
+	
+	msg_buf[msg_idx] = (char)buf;
+	msg_idx ++;
+
 	write(0, (const void *)&buf, 1);
+}
+
+static void my_putstring(const char *msg, size_t len)
+{
+	size_t i;
+
+	for (i=0; i<len; i++) {
+		my_putchar((const char)msg[i]);
+	}
 }
 
 #if 0
@@ -67,6 +84,7 @@ static void	my_memcpy(char *dst, const char *src, const char *end,
 	}
 }
 
+// 숫자의 길이를 구한다.
 static size_t get_integer_length(long int d, int base)
 {
 	size_t len = 0;
@@ -79,30 +97,26 @@ static size_t get_integer_length(long int d, int base)
 	return len;
 }
 
-#if 0
-static void my_int2str_old(int data, int base)
+// 숫자 데이터를 casting 한다.
+static long int get_integer_data(va_list *arg, unsigned int flags)
 {
-	int i;
-	int len;
-	int weight = 1;
-	char digit[] = "0123456789abcdef";
+	long int d;
 
-	len = get_integer_length(data, base);
-
-	for (i=0; i<len-1; i++)
-		weight *= base;
-
-	int c;
-	while (data) {
-		c = data / weight;
-		my_putchar((const char)digit[c]);
-
-		data -= (c * weight);
-		weight /=base;
+	if (flags & FMT_MOD_SHORT) {
+		d = (short int)va_arg(*arg, int);
 	}
-}
-#endif
+	else if (flags & FMT_MOD_LONG) {
+		d = (long int)va_arg(*arg, long int);
+	}
+	else {
+		d = (long int)va_arg(*arg, int);
+	}
 
+	return d;
+}
+
+// 숫자를 문자열로 변환 한다.
+// 만일 precision을 지정된 경우 같이 처리 한다.
 static char* int2str(long int data, int base, fmt_t *fmt)
 {
 	char *base_string[] = { 
@@ -129,6 +143,8 @@ static char* int2str(long int data, int base, fmt_t *fmt)
 		len = fmt->precision;
 	}
 
+	// 문자열로 변환 할때는 항상 양수형으로 연산 한 후에
+	// sign 기호를 추가 한다.
 	if (data < 0) {
 		data *= -1;
 	}
@@ -150,6 +166,7 @@ static char* int2str(long int data, int base, fmt_t *fmt)
 	buf[len] = digit[data];
 	len --;
 
+	// precision이 지정 된 경우 zero로 채운다.
 	while (len >= 0) {
 		buf[len] = '0';
 		len --;
@@ -205,6 +222,7 @@ static int parse_decimal(const char *buf, int *val, int not_allow_first_zero)
 	while (cont && *buf) {
 		switch (*buf) {
 		case '0':
+			// zero 허용 여부 적용: width 파싱시는 zero를 허용 안함
 			if (not_allow_first_zero && buf == start) {
 				// the cannot be zero
 				return 0;
@@ -228,7 +246,7 @@ static int parse_decimal(const char *buf, int *val, int not_allow_first_zero)
 		return len;
 	}
 
-	// string to integer
+	// convert string to integer
 	buf--;
 
 	while (buf >= start) {
@@ -367,10 +385,10 @@ static void print_integer(long int data, int base, fmt_t *fmt)
 	size_t len;
 	size_t tlen = 0;
 	size_t plen = 0;
-	size_t i;
 	char *msg;
 	char *p;
 	char *end;
+	char sign = '+';
 
 	string = int2str(data, base, fmt);
 	if (string == NULL)
@@ -378,7 +396,7 @@ static void print_integer(long int data, int base, fmt_t *fmt)
 
 	len = my_strlen(string);
 	end = string + len;
-	
+
 	if ((fmt->flags & FMT_HAS_WIDTH)) {
 		tlen = fmt->width;
 	}
@@ -387,65 +405,68 @@ static void print_integer(long int data, int base, fmt_t *fmt)
 		tlen = len;
 	}
 
+	plen = fmt->precision;
+
 	if (tlen == 0) {
 		tlen = len;
 	}
-
-	if (plen == 0) {
-		plen = len;
-	}
-
-#if 0
-	dprintf(2, "tlen=%lu, plen=%lu, len=%lu \n", tlen, plen, len);
-	fflush(NULL);
-#endif
 
 	msg = (char*)malloc(tlen);
 	if (msg == NULL) {
 		return;
 	}
 
-	my_memset(msg, ' ', tlen);
+	if (data < 0) {
+		sign = '-';
+	}
 
 	if (fmt->flags & FMT_FLAG_MINUS) {
 		p = msg;
+
+		my_memset(msg, ' ', tlen);
+		
+		if (((data > 0) && (fmt->flags & FMT_FLAG_PLUS)) || 
+			data < 0) {
+			*p = sign;
+			p++;
+		}
 	}
 	else {
-		p = msg + (tlen - plen);
+		p = msg + (tlen - len);
+
+		if (fmt->flags & (FMT_FLAG_PLUS | FMT_FLAG_ZERO)) {
+			my_memset(msg, ' ', tlen);
+
+			if (plen == 0 && fmt->flags & FMT_FLAG_ZERO) {
+				char *s = msg;
+				if (data != 0 && (fmt->flags & FMT_FLAG_PLUS)) {
+					*msg = sign;
+					s ++;
+				}
+
+				my_memset(s, '0', p-s);
+			}
+			else {
+				*(msg + tlen - len - 1) = sign;
+			}
+		}
+		else {
+			my_memset(msg, ' ', tlen);
+		}
+
 	}
 
 	my_memcpy(p, string, end, len, fmt->flags & FMT_FLAG_TILDE);
-
-	for (i=0; i<tlen; i++) {
-		my_putchar((const char)msg[i]);
-	}
+	my_putstring(msg, tlen);
 
 	free(msg);
 	free(string);
-}
-
-static long int get_integer_data(va_list *arg, unsigned int flags)
-{
-	long int d;
-
-	if (flags & FMT_MOD_SHORT) {
-		d = (short int)va_arg(*arg, int);
-	}
-	else if (flags & FMT_MOD_LONG) {
-		d = (long int)va_arg(*arg, long int);
-	}
-	else {
-		d = (long int)va_arg(*arg, int);
-	}
-
-	return d;
 }
 
 static void print_string(const char *buf, size_t len, fmt_t* fmt)
 {
 	size_t tlen = 0;
 	size_t plen = 0;
-	size_t i;
 	char *msg;
 	char *p;
 	const char *end = buf + len;
@@ -482,11 +503,6 @@ static void print_string(const char *buf, size_t len, fmt_t* fmt)
 		plen = len;
 	}
 
-#if 0
-	dprintf(2, "tlen=%lu, plen=%lu, len=%lu \n", tlen, plen, len);
-	fflush(NULL);
-#endif
-
 	msg = (char*)malloc(tlen);
 	if (msg == NULL) {
 		return;
@@ -502,14 +518,10 @@ static void print_string(const char *buf, size_t len, fmt_t* fmt)
 	}
 
 	my_memcpy(p, buf, end, len, fmt->flags & FMT_FLAG_TILDE);
-
-	for (i=0; i<tlen; i++) {
-		my_putchar((const char)msg[i]);
-	}
+	my_putstring(msg, tlen);
 
 	free(msg);
 }
-
 
 static void print_argument(va_list *arg, fmt_t *fmt) 
 {
@@ -526,16 +538,12 @@ static void print_argument(va_list *arg, fmt_t *fmt)
 		s = va_arg(*arg, char*);
 		len = 1;
 		print_string((const char*)s, len, fmt);
-		//my_putchar((const char)*s);
 		break;
 
 	case FMT_TYPE_STRING:
 		s = va_arg(*arg, char *);
 		len = my_strlen((const char*)s);
 		print_string((const char*)s, len, fmt);
-
-		//for (s = va_arg(*arg, char *); *s; s++)
-		//	my_putchar((const char)*s);
 		break;
 
 	case FMT_TYPE_BINARY:
