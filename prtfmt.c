@@ -85,7 +85,7 @@ static void	my_memcpy(char *dst, const char *src, const char *end,
 }
 
 // 숫자의 길이를 구한다.
-static size_t get_integer_length(long int d, int base)
+static size_t get_integer_length(int d, int base)
 {
 	size_t len = 0;
 
@@ -107,6 +107,9 @@ static long int get_integer_data(va_list *arg, unsigned int flags)
 	}
 	else if (flags & FMT_MOD_LONG) {
 		d = (long int)va_arg(*arg, long int);
+	}
+	else if (flags & FMT_TYPE_HEX) {
+		d = (unsigned long int)va_arg(*arg, long int);
 	}
 	else {
 		d = (long int)va_arg(*arg, int);
@@ -134,19 +137,19 @@ static char* int2str(long int data, int base, fmt_t *fmt)
 		digit = base_string[0];
 	}
 
-	len = (int)get_integer_length(data, base);
+	// 문자열로 변환 할때는 항상 양수형으로 연산 한 후에
+	// sign 기호를 추가 한다.
+	if ((int)data < 0) {
+		data *= -1;
+	}
+
+	len = (int)get_integer_length((int)data, base);
 
 	if (len < 1)
 		return NULL;
 
 	if (fmt->flags & FMT_HAS_PRECISION && fmt->precision > len) {
 		len = fmt->precision;
-	}
-
-	// 문자열로 변환 할때는 항상 양수형으로 연산 한 후에
-	// sign 기호를 추가 한다.
-	if (data < 0) {
-		data *= -1;
 	}
 
 	buf = (char*)malloc(len+1);
@@ -171,6 +174,7 @@ static char* int2str(long int data, int base, fmt_t *fmt)
 		buf[len] = '0';
 		len --;
 	}
+
 
 	return buf;
 }
@@ -346,7 +350,6 @@ static int parse_format(const char *buf, fmt_t *fmt)
 	int len=0;
 	char *start = (char*)buf;
 
-
 	if (buf == NULL || fmt == NULL) {
 		return 0;
 	}
@@ -379,7 +382,7 @@ static int parse_format(const char *buf, fmt_t *fmt)
 	return len;
 }
 
-static void print_integer(long int data, int base, fmt_t *fmt)
+static void print_integer(va_list *arg, int base, fmt_t *fmt)
 {
 	char *string;
 	size_t len;
@@ -389,10 +392,15 @@ static void print_integer(long int data, int base, fmt_t *fmt)
 	char *p;
 	char *end;
 	char sign = '+';
+	long int data;
 
+	data = get_integer_data(arg, fmt->flags & FMT_MOD_ALL);
 	string = int2str(data, base, fmt);
 	if (string == NULL)
 		return;
+
+	printf("$$$$ str=%s \n", string);fflush(NULL);
+	return;
 
 	len = my_strlen(string);
 	end = string + len;
@@ -439,19 +447,34 @@ static void print_integer(long int data, int base, fmt_t *fmt)
 
 			if (plen == 0 && fmt->flags & FMT_FLAG_ZERO) {
 				char *s = msg;
-				if (data != 0 && (fmt->flags & FMT_FLAG_PLUS)) {
+				if (data > 0 && (fmt->flags & FMT_FLAG_PLUS)) {
+					*msg = sign;
+					s ++;
+				}
+				else if (data < 0) {
 					*msg = sign;
 					s ++;
 				}
 
 				my_memset(s, '0', p-s);
 			}
-			else {
+			else if (!(fmt->flags & FMT_TYPE_HEX)) {
 				*(msg + tlen - len - 1) = sign;
 			}
 		}
 		else {
 			my_memset(msg, ' ', tlen);
+
+			if (data < 0) {
+				if (p == msg) {
+					*p = sign;
+					len --;
+					p ++;
+				}
+				else {
+					*(p-1) = sign;
+				}
+			}
 		}
 
 	}
@@ -526,8 +549,9 @@ static void print_string(const char *buf, size_t len, fmt_t* fmt)
 static void print_argument(va_list *arg, fmt_t *fmt) 
 {
 	char *s;
-	long int d;
-	size_t len;
+	//long int d;
+	size_t len=0;
+	char c;
 
 	switch (fmt->flags & FMT_TYPE_ALL) {
 	case FMT_TYPE_IGNORE_ALL:
@@ -535,9 +559,9 @@ static void print_argument(va_list *arg, fmt_t *fmt)
 		break;
 
 	case FMT_TYPE_CHAR:
-		s = va_arg(*arg, char*);
+		c = (char)va_arg(*arg, int);
 		len = 1;
-		print_string((const char*)s, len, fmt);
+		print_string((const char*)&c, len, fmt);
 		break;
 
 	case FMT_TYPE_STRING:
@@ -547,23 +571,19 @@ static void print_argument(va_list *arg, fmt_t *fmt)
 		break;
 
 	case FMT_TYPE_BINARY:
-		d = get_integer_data(arg, fmt->flags & FMT_MOD_ALL);
-		print_integer(d, 2, fmt);
+		print_integer(arg, 2, fmt);
 		break;
 
 	case FMT_TYPE_DECIMAL:
-		d = get_integer_data(arg, fmt->flags & FMT_MOD_ALL);
-		print_integer(d, 10, fmt);
+		print_integer(arg, 10, fmt);
 		break;
 
 	case FMT_TYPE_HEX_LOWER:
-		d = get_integer_data(arg, fmt->flags & FMT_MOD_ALL);
-		print_integer(d, 16, fmt);
+		print_integer(arg, 16, fmt);
 		break;
 
 	case FMT_TYPE_HEX_UPPER:
-		d = get_integer_data(arg, fmt->flags & FMT_MOD_ALL);
-		print_integer(d, 16, fmt);
+		print_integer(arg, 16, fmt);
 		break;
 
 	default:
