@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-I. -Wall
-CFLAGS+=-D__DEBUG__ -g
+#CFLAGS+=-D__DEBUG__ -g
 
 OBJS=$(SRCS:.c=.o)
 
@@ -13,7 +13,11 @@ BIN  = mini_printf
 
 all: $(BIN) tag
 #	./$(BIN)
-	gdb --args ./$(BIN)
+#	gdb --args ./$(BIN)
+
+run: $(BIN)
+	./$(BIN)
+
 
 $(BIN): $(OBJS)
 	$(CC) -o $@ $^ $(CFLAGS)

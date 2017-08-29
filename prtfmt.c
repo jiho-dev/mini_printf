@@ -13,6 +13,7 @@
 char msg_buf[1024];
 int  msg_idx=0;
 
+
 static void print_string(const char *buf, size_t len, fmt_t* fmt);
 
 //////////////////////////////////////////////
@@ -20,7 +21,6 @@ static void print_string(const char *buf, size_t len, fmt_t* fmt);
 static void my_putchar(const char buf)
 {
 	// for debugging
-	
 	msg_buf[msg_idx] = (char)buf;
 	msg_idx ++;
 
@@ -97,22 +97,34 @@ static size_t get_integer_length(int d, int base)
 	return len;
 }
 
+static size_t get_uinteger_length(unsigned int d, int base)
+{
+	size_t len = 0;
+
+	while (d) {
+		len ++;
+		d /= base;
+	}
+
+	return len;
+}
+
 // 숫자 데이터를 casting 한다.
 static long int get_integer_data(va_list *arg, unsigned int flags)
 {
-	long int d;
+	int d;
 
 	if (flags & FMT_MOD_SHORT) {
 		d = (short int)va_arg(*arg, int);
 	}
 	else if (flags & FMT_MOD_LONG) {
-		d = (long int)va_arg(*arg, long int);
+		d = (int)va_arg(*arg, long int);
 	}
 	else if (flags & FMT_TYPE_HEX) {
 		d = (unsigned long int)va_arg(*arg, long int);
 	}
 	else {
-		d = (long int)va_arg(*arg, int);
+		d = (int)va_arg(*arg, int);
 	}
 
 	return d;
@@ -120,7 +132,7 @@ static long int get_integer_data(va_list *arg, unsigned int flags)
 
 // 숫자를 문자열로 변환 한다.
 // 만일 precision을 지정된 경우 같이 처리 한다.
-static char* int2str(long int data, int base, fmt_t *fmt)
+static char* int2str(va_list *arg, int base, fmt_t *fmt, char *sign)
 {
 	char *base_string[] = { 
 		"0123456789abcdef",
@@ -129,6 +141,7 @@ static char* int2str(long int data, int base, fmt_t *fmt)
 	int len;
 	char *buf;
 	char *digit;
+	int data;
 	
 	if (fmt->flags & FMT_TYPE_HEX_UPPER) {
 		digit = base_string[1];
@@ -137,14 +150,29 @@ static char* int2str(long int data, int base, fmt_t *fmt)
 		digit = base_string[0];
 	}
 
+	data = get_integer_data(arg, fmt->flags & FMT_MOD_ALL);
+
 	// 문자열로 변환 할때는 항상 양수형으로 연산 한 후에
 	// sign 기호를 추가 한다.
-	if ((int)data < 0) {
+	if (data == 0 || (fmt->flags & FMT_TYPE_HEX)) {
+		*sign = ' ';
+	}
+	else if (data < 0) {
+		*sign = '-';
 		data *= -1;
 	}
+	else {
+		*sign = '+';
+	}
 
-	len = (int)get_integer_length((int)data, base);
+	if (fmt->flags & FMT_TYPE_HEX) {
+		len = get_uinteger_length((unsigned int)data, base);
+	}
+	else {
+		len = get_integer_length((int)data, base);
+	}
 
+	//printf("### %c %d, len=%d \n", *sign, data, len);
 	if (len < 1)
 		return NULL;
 
@@ -159,22 +187,37 @@ static char* int2str(long int data, int base, fmt_t *fmt)
 	buf[len] = '\0';
 	len --;
 
-	while (data >= base) {
-		int c = data % base;
-		buf[len] = digit[c];
-		data /= base;
+	// 숫자를 문자로 만든다.
+	if (fmt->flags & FMT_TYPE_HEX) {
+		unsigned int li = (unsigned int)data;
+
+		while (li >= base) {
+			int c = li % base;
+			buf[len] = digit[c];
+			li /= base;
+			len --;
+		}
+
+		buf[len] = digit[li];
 		len --;
 	}
+	else {
+		while (data >= base) {
+			int c = data % base;
+			buf[len] = digit[c];
+			data /= base;
+			len --;
+		}
 
-	buf[len] = digit[data];
-	len --;
+		buf[len] = digit[data];
+		len --;
+	}
 
 	// precision이 지정 된 경우 zero로 채운다.
 	while (len >= 0) {
 		buf[len] = '0';
 		len --;
 	}
-
 
 	return buf;
 }
@@ -391,16 +434,11 @@ static void print_integer(va_list *arg, int base, fmt_t *fmt)
 	char *msg;
 	char *p;
 	char *end;
-	char sign = '+';
-	long int data;
+	char sign = 0;
 
-	data = get_integer_data(arg, fmt->flags & FMT_MOD_ALL);
-	string = int2str(data, base, fmt);
+	string = int2str(arg, base, fmt, &sign);
 	if (string == NULL)
 		return;
-
-	printf("$$$$ str=%s \n", string);fflush(NULL);
-	return;
 
 	len = my_strlen(string);
 	end = string + len;
@@ -424,17 +462,13 @@ static void print_integer(va_list *arg, int base, fmt_t *fmt)
 		return;
 	}
 
-	if (data < 0) {
-		sign = '-';
-	}
-
 	if (fmt->flags & FMT_FLAG_MINUS) {
 		p = msg;
 
 		my_memset(msg, ' ', tlen);
 		
-		if (((data > 0) && (fmt->flags & FMT_FLAG_PLUS)) || 
-			data < 0) {
+		if (((sign == '+') && (fmt->flags & FMT_FLAG_PLUS)) || 
+			sign == '-') {
 			*p = sign;
 			p++;
 		}
@@ -447,11 +481,12 @@ static void print_integer(va_list *arg, int base, fmt_t *fmt)
 
 			if (plen == 0 && fmt->flags & FMT_FLAG_ZERO) {
 				char *s = msg;
-				if (data > 0 && (fmt->flags & FMT_FLAG_PLUS)) {
+
+				if (sign == '+' && (fmt->flags & FMT_FLAG_PLUS)) {
 					*msg = sign;
 					s ++;
 				}
-				else if (data < 0) {
+				else if (sign == '-') {
 					*msg = sign;
 					s ++;
 				}
@@ -465,7 +500,7 @@ static void print_integer(va_list *arg, int base, fmt_t *fmt)
 		else {
 			my_memset(msg, ' ', tlen);
 
-			if (data < 0) {
+			if (sign == '-') {
 				if (p == msg) {
 					*p = sign;
 					len --;
@@ -476,7 +511,6 @@ static void print_integer(va_list *arg, int base, fmt_t *fmt)
 				}
 			}
 		}
-
 	}
 
 	my_memcpy(p, string, end, len, fmt->flags & FMT_FLAG_TILDE);
