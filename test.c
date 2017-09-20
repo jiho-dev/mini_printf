@@ -181,3 +181,13 @@ int main(void)
 	return 0;
 }
 
+/*
+ * antlabs feedback
+ *
+ * Your solution contains at least the following issues:
+ * Not able to  handle a 64-bit number on a 64-bit platform for wrong types used in some functions. (e.g. int in get_integer_data)
+ * Residue code injected for the testing purpose causes crash for an input that produces long output (e.g. msg_buf)
+ * Prohibited/unnecessary use of library functions (e.g. malloc.) 
+ * Naive use of the output function (e.g. write of a single character)
+ *
+ */

@@ -10,8 +10,10 @@
 
 #include "prtfmt.h"
 
+#ifdef __DEBUG__
 char msg_buf[1024];
 int  msg_idx=0;
+#endif
 
 
 static void print_string(const char *buf, size_t len, fmt_t* fmt);
@@ -20,9 +22,14 @@ static void print_string(const char *buf, size_t len, fmt_t* fmt);
 
 static void my_putchar(const char buf)
 {
+#ifdef __DEBUG__
 	// for debugging
 	msg_buf[msg_idx] = (char)buf;
-	msg_idx ++;
+	
+	if (msg_idx < 1024) {
+		msg_idx ++;
+	}
+#endif
 
 	write(0, (const void *)&buf, 1);
 }
@@ -112,13 +119,13 @@ static size_t get_uinteger_length(unsigned int d, int base)
 // 숫자 데이터를 casting 한다.
 static long int get_integer_data(va_list *arg, unsigned int flags)
 {
-	int d;
+	long int d;
 
 	if (flags & FMT_MOD_SHORT) {
 		d = (short int)va_arg(*arg, int);
 	}
 	else if (flags & FMT_MOD_LONG) {
-		d = (int)va_arg(*arg, long int);
+		d = (long int)va_arg(*arg, long int);
 	}
 	else if (flags & FMT_TYPE_HEX) {
 		d = (unsigned long int)va_arg(*arg, long int);
